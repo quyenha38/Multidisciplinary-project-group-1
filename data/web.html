@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 Dashboard</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      text-align: center; 
+      margin-top: 30px;
+      background-color: #5c83aa;
+    }
+    h1 {
+      font-family: 'Cursive';
+      font-size: 36px;
+      color: #3498db;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px #888888;
+      margin-bottom: 40px;
+    }
+    .data-container {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-bottom: 20px;
+    }
+    .data-item {
+      padding: 20px;
+      background: rgb(196, 187, 230);
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      width: 300px;
+    }
+    .data-item h2 {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+    .data-item p {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .data-bar {
+      width: 100%;
+      height: 30px;
+      background-color: #e0e0e0;
+      border-radius: 15px;
+      margin-top: 10px;
+      position: relative;
+    }
+    .data-level {
+      height: 100%;
+      width: 0%;
+      background-color: #3498db;
+      border-radius: 15px;
+      transition: width 0.5s ease;
+    }
+    .button-container {
+      margin-top: 20px;
+    }
+    .button {
+      padding: 10px 20px; 
+      margin: 10px; 
+      cursor: pointer; 
+      font-size: 16px; 
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      transition: background-color 0.3s;
+    }
+    .button:hover {
+      background-color: #2980b9;
+    }
+    .loading {
+      font-size: 18px;
+      color: #7f8c8d;
+    }
+  </style>
+</head>
+<body>
+  <h1>ESP32 Web Server</h1>
+  <div class="data-container"> 
+    
+    <div class="data-item">
+      <h2>Temperature</h2>
+      <p id="temperature" class="loading">Loading...</p>
+      <div class="data-bar">
+        <div id="temperature-bar" class="data-level"></div>
+      </div>
+    </div>
+
+    <div class="data-item">
+      <h2>Humidity</h2>
+      <p id="humidity" class="loading">Loading...</p>
+      <div class="data-bar">
+        <div id="humidity-bar" class="data-level"></div>
+      </div>
+    </div>
+
+    <div class="data-item">
+      <h2>Light Intensity</h2>
+      <p id="light" class="loading">Loading...</p>
+      <div class="data-bar">
+        <div id="light-bar" class="data-level"></div>
+      </div>
+    </div>
+
+    <div class="data-item">
+      <h2>Soil Moisture</h2>
+      <p id="soil-moisture" class="loading">Loading...</p>
+      <div class="data-bar">
+        <div id="soil-moisture-bar" class="data-level"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="button-container">
+    <button class="button" onclick="toggleLED('on')">Turn LED On</button>
+    <button class="button" onclick="toggleLED('off')">Turn LED Off</button>
+  </div>
+
+  <script>
+    // Fetch data from the ESP32 server every 2 seconds
+    setInterval(() => {
+      fetch('/temperature')
+        .then(response => response.text())
+        .then(data => {
+          document.getElementById('temperature').innerText = `${data} °C`;
+          updateBar('temperature-bar', data, 0, 50);
+        });
+
+      fetch('/humidity')
+        .then(response => response.text())
+        .then(data => {
+          document.getElementById('humidity').innerText = `${data} %`;
+          updateBar('humidity-bar', data, 0, 100);
+        });
+
+      fetch('/soilmoisture')
+        .then(response => response.text())
+        .then(data => {
+          document.getElementById('soil-moisture').innerText = `${data} g/m³`;
+          updateBar('soil-moisture-bar', data, 0, 2000); // Assuming soil moisture value is a percentage
+    });
+
+      fetch('/light')
+        .then(response => response.text())
+        .then(data => {
+          document.getElementById('light').innerText = `${data} lux`;
+          updateBar('light-bar', data, 0, 5000);
+        });
+    }, 500);
+
+    // Function to update the bar based on the current value and range
+    function updateBar(barId, value, min, max) {
+      const clampedValue = Math.max(min, Math.min(max, value));
+      const percentage = ((clampedValue - min) / (max - min)) * 100;
+      document.getElementById(barId).style.width = percentage + '%';
+      const barElement = document.getElementById(barId);
+      barElement.style.width = percentage + '%';
+      if (barId === 'temperature-bar') {
+    if (value < 27) {
+      barElement.style.backgroundColor = 'lightblue';
+    } else if (value >= 27 && value <= 28) {
+      barElement.style.backgroundColor = 'lightgreen';
+    } else {
+      barElement.style.backgroundColor = 'lightsalmon';
+    }
+  }
+    }
+  
+
+    // Function to toggle LED state
+    function toggleLED(state) {
+      fetch(`/led/${state}`)
+        .then(response => response.text())
+        .then(data => alert(data));
+    }
+  </script>
+</body>
+</html>

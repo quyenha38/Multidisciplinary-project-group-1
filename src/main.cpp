@@ -8,18 +8,21 @@
 #include <ESPAsyncWebServer.h>
 #include <PubSubClient.h>
 
-//#define WLAN_SSID "RD-SEAI_2.4G" //uncomment to run ohstem
+//#define WLAN_SSID "RD-SEAI_2.4G" //uncomment to run ohstem and adafruit
 #define WLAN_SSID "ESP32" //uncomment to run webserver
 #define WLAN_PASS ""
-// #define AIO_SERVER      "io.adafruit.com"
-// #define AIO_SERVERPORT  1883
-// #define AIO_USERNAME    "taioccho2004"
-// #define AIO_KEY         "aio_xnpI28p1uoAZTf5WBwpzqlRt3YqV"
 
-#define OHS_SERVER      "mqtt.ohstem.vn"
-#define OHS_SERVERPORT  1883
-#define OHS_USERNAME    "ohstem"
-#define OHS_KEY         ""
+//uncomment to run adafruit
+#define AIO_SERVER      "io.adafruit.com"
+#define AIO_SERVERPORT  1883
+#define AIO_USERNAME    "quyenha38"
+#define AIO_KEY         "aio_QSJK81LuXS8CcLafV5bXqLyePMdt"
+
+//uncomment to run ohstem
+// #define OHS_SERVER      "mqtt.ohstem.vn"
+// #define OHS_SERVERPORT  1883
+// #define OHS_USERNAME    "ohstem"
+// #define OHS_KEY         ""
 
 // Define ports
 #define D5 GPIO_NUM_8
@@ -28,21 +31,23 @@
 #define A0 GPIO_NUM_1
 
 WiFiClient client;
-// Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_USERNAME, AIO_KEY);
-// Adafruit_MQTT_Subscribe timefeed = Adafruit_MQTT_Subscribe(&mqtt, "time/seconds");
-// Adafruit_MQTT_Subscribe slider = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/slider", MQTT_QOS_1);
-// Adafruit_MQTT_Subscribe onoffbutton = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/V1", MQTT_QOS_1);
-// Adafruit_MQTT_Publish sensory = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/V20");
-// Adafruit_MQTT_Publish temperatureFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/temperature");
-// Adafruit_MQTT_Publish humidityFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/humidity");
-// Adafruit_MQTT_Publish lightFeed= Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME"/feeds/light");
-Adafruit_MQTT_Client mqtt(&client, OHS_SERVER, OHS_SERVERPORT, OHS_USERNAME, OHS_USERNAME, OHS_KEY); //for Ohstem
+Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_USERNAME, AIO_KEY);
+Adafruit_MQTT_Subscribe timefeed = Adafruit_MQTT_Subscribe(&mqtt, "time/seconds");
+Adafruit_MQTT_Subscribe slider = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/slider", MQTT_QOS_1); //slider need more research
+Adafruit_MQTT_Subscribe onoffbutton = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME "/feeds/V1", MQTT_QOS_1);
+Adafruit_MQTT_Publish sensory = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/V20");
+Adafruit_MQTT_Publish temperatureFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/temperature");
+Adafruit_MQTT_Publish humidityFeed = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/humidity");
+Adafruit_MQTT_Publish lightFeed= Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME"/feeds/light");
+Adafruit_MQTT_Publish soilMoistureFeed= Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME"/feeds/soilmoisture");
+
 // MQTT Feeds for ohstem 
-Adafruit_MQTT_Publish temperatureFeed = Adafruit_MQTT_Publish(&mqtt, OHS_USERNAME "/feeds/V2");
-Adafruit_MQTT_Publish humidityFeed = Adafruit_MQTT_Publish(&mqtt, OHS_USERNAME "/feeds/V3");
-Adafruit_MQTT_Publish soilMoistureFeed = Adafruit_MQTT_Publish(&mqtt, OHS_USERNAME "/feeds/V4");
-Adafruit_MQTT_Publish lightFeed = Adafruit_MQTT_Publish(&mqtt, OHS_USERNAME "/feeds/V5");
-Adafruit_MQTT_Subscribe onoffbutton = Adafruit_MQTT_Subscribe(&mqtt, OHS_USERNAME "/feeds/V1", MQTT_QOS_1);
+// Adafruit_MQTT_Client mqtt(&client, OHS_SERVER, OHS_SERVERPORT, OHS_USERNAME, OHS_USERNAME, OHS_KEY); //for Ohstem
+// Adafruit_MQTT_Publish temperatureFeed = Adafruit_MQTT_Publish(&mqtt, OHS_USERNAME "/feeds/V2");
+// Adafruit_MQTT_Publish humidityFeed = Adafruit_MQTT_Publish(&mqtt, OHS_USERNAME "/feeds/V3");
+// Adafruit_MQTT_Publish soilMoistureFeed = Adafruit_MQTT_Publish(&mqtt, OHS_USERNAME "/feeds/V4");
+// Adafruit_MQTT_Publish lightFeed = Adafruit_MQTT_Publish(&mqtt, OHS_USERNAME "/feeds/V5");
+// Adafruit_MQTT_Subscribe onoffbutton = Adafruit_MQTT_Subscribe(&mqtt, OHS_USERNAME "/feeds/V1", MQTT_QOS_1);
 
 // Define your tasks here
 void TaskBlink(void *pvParameters);
@@ -58,14 +63,26 @@ LiquidCrystal_I2C lcd(33,16,2);
 // HTTP Server
 AsyncWebServer server(80);
 
-void slidercallback(double x) {
-  Serial.print("Slider value: ");
-  Serial.println(x);
-}
+// void slidercallback(double x) {
+//   Serial.print("Slider value: ");
+//   Serial.println(x);
 
+//   int brightness = map(x, 0, 100, 0, 255);
+//   ledcWrite(0, brightness); 
+// }
+bool ledState = false;  // LED status
+#define LIGHT_PIN GPIO_NUM_48
 void onoffcallback(char *data, uint16_t len) {
   Serial.print("Button value: ");
   Serial.println(data);
+
+  if (strcmp(data, "ON") == 0) {
+      ledState = true;
+      digitalWrite(LIGHT_PIN, HIGH);  // Bật đèn
+  } else if (strcmp(data, "OFF") == 0) {
+      ledState = false;
+      digitalWrite(LIGHT_PIN, LOW);  // Tắt đèn
+  }
 }
 
 void MQTT_connect() {
@@ -86,15 +103,21 @@ void MQTT_connect() {
 }
 
 void setup() {
+  pinMode(LIGHT_PIN, OUTPUT);
+  digitalWrite(LIGHT_PIN, LOW);
   Serial.begin(115200); 
   Wire.begin(GPIO_NUM_11, GPIO_NUM_12);
   dht20.begin();
   lcd.begin();
   pixels3.begin();
+  ledcSetup(0, 5000, 8); 
+  ledcAttachPin(GPIO_NUM_48, 0);
+  WiFi.softAP(WLAN_SSID); //uncomment to run webserver
+//pio run -t uploadfs to flash  data to esp32
 
-   WiFi.softAP(WLAN_SSID); //uncomment to run webserver
 
-//uncomment to run on ohstem 
+
+//uncomment to run on ohstem and adafruit
   // WiFi.begin(WLAN_SSID, WLAN_PASS);
   // delay(2000);
   // while (WiFi.status() != WL_CONNECTED) {
@@ -104,11 +127,13 @@ void setup() {
   // Serial.println();
   // Serial.print("IP address: ");
   // Serial.println(WiFi.localIP());
+// mqtt end here
 
-  // slider.setCallback(slidercallback);
-  // onoffbutton.setCallback(onoffcallback);
-  // mqtt.subscribe(&slider);
-  // mqtt.subscribe(&onoffbutton);
+
+  //slider.setCallback(slidercallback);
+  onoffbutton.setCallback(onoffcallback);
+  //mqtt.subscribe(&slider);
+  mqtt.subscribe(&onoffbutton);
 
   xTaskCreate(TaskBlink, "Task Blink", 2048, NULL, 2, NULL);
   xTaskCreate(TaskTemperatureHumidity, "Task Temperature", 2048, NULL, 2, NULL);
@@ -139,7 +164,7 @@ void setup() {
 
   // Endpoint to fetch light intensity (using analogRead for demo)
   server.on("/light", HTTP_GET, [](AsyncWebServerRequest *request){
-    float lightIntensity = analogRead(A1  );  // Chân đọc ánh sáng, thay đổi phù hợp với phần cứng của bạn
+    float lightIntensity = analogRead(A1  );  
     request->send(200, "text/plain", String(lightIntensity));
   });
 
@@ -151,16 +176,15 @@ void setup() {
 
   // Endpoint to control LED
   server.on("/led/on", HTTP_GET, [](AsyncWebServerRequest *request){
-    pixels3.setPixelColor(0, pixels3.Color(255, 0, 0)); // Red LED on
-    pixels3.show();
+    digitalWrite(LIGHT_PIN, HIGH); // Bật đèn
     request->send(200, "text/plain", "LED is On");
-  });
+});
 
-  server.on("/led/off", HTTP_GET, [](AsyncWebServerRequest *request){
-    pixels3.setPixelColor(0, pixels3.Color(0, 0, 0)); // LED off
-    pixels3.show();
+// Endpoint để tắt đèn (GPIO 48)
+server.on("/led/off", HTTP_GET, [](AsyncWebServerRequest *request){
+    digitalWrite(LIGHT_PIN, LOW); // Tắt đèn
     request->send(200, "text/plain", "LED is Off");
-  });
+});
 
 
   // Start the server
@@ -180,18 +204,28 @@ void loop() {
 void TaskBlink(void *pvParameters) {
   pinMode(GPIO_NUM_48, OUTPUT);
   uint32_t x=0;
-  
-  while(1) {
-    digitalWrite(GPIO_NUM_48, HIGH);
-    Serial.println("LED_on");
+//uncomment to control by button on adafruit and ohstem
+  while (1) {
+    if (ledState) {
+        digitalWrite(LIGHT_PIN, HIGH);  // Bật đèn LED
+    } else {
+        digitalWrite(LIGHT_PIN, LOW);  // Tắt đèn LED
+    }
     delay(5000);
-    digitalWrite(GPIO_NUM_48, LOW);
-    Serial.println("LED_off");
-    delay(5000);
-    // if (sensory.publish(x++)) {
-    //   Serial.println(F("Published successfully!!"));
-    // }
-  }
+}
+  //uncomment to blink the LED
+  // while(1) {
+  //   digitalWrite(GPIO_NUM_48, HIGH);
+  //   Serial.println("LED_on");
+  //   delay(5000);
+  //   digitalWrite(GPIO_NUM_48, LOW);
+  //   Serial.println("LED_off");
+  //   delay(5000);
+  //   //uncomment to run addfruit
+  //   if (sensory.publish(x++)) {
+  //     Serial.println(F("Published successfully!!"));
+  //   }
+  // }
 }
 
 void TaskTemperatureHumidity(void *pvParameters) {
@@ -222,7 +256,7 @@ void TaskTemperatureHumidity(void *pvParameters) {
     lcd.setCursor(0, 1);
     lcd.print(dht20.getHumidity());
 
-    delay(3000);
+    delay(6000);
   }
 }
 
@@ -245,7 +279,7 @@ void TaskSoilMoistureAndRelay(void *pvParameters) {
     if(analogRead(A0) < 50){
       digitalWrite(D3, HIGH);
     }
-    delay(3000);
+    delay(8000);
   }
 }
 
@@ -268,6 +302,6 @@ void TaskLightAndLED(void *pvParameters) {
       pixels3.clear();
       pixels3.show();
     }
-    delay(3000);
+    delay(10000);
   }
 }

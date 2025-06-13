@@ -305,3 +305,71 @@ void TaskLightAndLED(void *pvParameters) {
     delay(10000);
   }
 }
+
+#include <HTTPClient.h>
+
+void sendImageRequest( String img) {
+
+  File imageFile = SPIFFS.open(img, "r");
+  if (!imageFile || imageFile.isDirectory()) {
+    Serial.println("Failed to open image file");
+    return;
+  }
+
+  WiFiClient wifiClient;
+  HTTPClient http;
+
+  http.begin(wifiClient, "http://127.0.0.1:8000/process");
+  String boundary = "----ESP32Boundary";
+
+  http.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+  String bodyStart = "--" + boundary + "\r\n";
+  bodyStart += "Content-Disposition: form-data; name=\"mail\"\r\n\r\n";
+  bodyStart += "mailto:24006836@student.westernsydney.edu.vn\r\n";
+
+  bodyStart += "--" + boundary + "\r\n";
+  bodyStart += "Content-Disposition: form-data; name=\"course\"\r\n\r\n";
+  bodyStart += "https://lms.westernsydney.edu.vn/activities/courses/business-academic-skills-t225wsb-5_1548\r\n";
+
+  bodyStart += "--" + boundary + "\r\n";
+  bodyStart += "Content-Disposition: form-data; name=\"file\"; filename=\"image.jpg\"\r\n";
+  bodyStart += "Content-Type: image/jpeg\r\n\r\n";
+
+  String bodyEnd = "\r\n--" + boundary + "--\r\n";
+
+  int totalLen = bodyStart.length() + imageFile.size() + bodyEnd.length();
+  http.setTimeout(20000);
+
+  int httpCode = http.sendRequest("POST", &wifiClient, totalLen,
+    [&](WiFiClient *client) {
+      client->print(bodyStart);
+
+      uint8_t buf[512];
+      while (imageFile.available()) {
+        size_t len = imageFile.read(buf, sizeof(buf));
+        client->write(buf, len);
+      }
+
+      client->print(bodyEnd);
+    }
+  );
+
+  imageFile.close();  // ✅ Close the file before removing it
+
+  // ✅ Delete the image after sending
+  if (SPIFFS.remove(img)) {
+    Serial.println("Image deleted from SPIFFS.");
+  } else {
+    Serial.println("Failed to delete image.");
+  }
+
+  if (httpCode > 0) {
+    String response = http.getString();
+    Serial.printf("HTTP %d\nResponse: %s\n", httpCode, response.c_str());
+  } else {
+    Serial.printf("HTTP request failed: %s\n", http.errorToString(httpCode).c_str());
+  }
+
+  http.end();
+}

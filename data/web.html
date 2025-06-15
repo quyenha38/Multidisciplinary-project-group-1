@@ -4,120 +4,217 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ESP32 Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --primary-color: #4361ee;
+      --secondary-color: #3a0ca3;
+      --background-color: #f8f9fa;
+      --card-background: #ffffff;
+      --text-color: #212529;
+      --text-secondary: #6c757d;
+      --success-color: #2ecc71;
+      --warning-color: #f39c12;
+      --danger-color: #e74c3c;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
     body { 
-      font-family: Arial, sans-serif; 
+      font-family: 'Poppins', Arial, sans-serif; 
       text-align: center; 
-      margin-top: 30px;
-      background-color: #5c83aa;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      padding: 40px 20px;
+      background-image: radial-gradient(#4361ee 0.5px, transparent 0.5px), radial-gradient(#4361ee 0.5px, var(--background-color) 0.5px);
+      background-size: 20px 20px;
+      background-position: 0 0, 10px 10px;
+      background-attachment: fixed;
     }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
     h1 {
-      font-family: 'Cursive';
-      font-size: 36px;
-      color: #3498db;
-      font-weight: bold;
-      text-shadow: 2px 2px 4px #888888;
+      font-family: 'Poppins', sans-serif;
+      font-size: 42px;
+      color: var(--secondary-color);
+      font-weight: 700;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
       margin-bottom: 40px;
+      position: relative;
+      display: inline-block;
     }
+    
+    h1:after {
+      content: "";
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 4px;
+      background-color: var(--primary-color);
+      border-radius: 2px;
+    }
+    
     .data-container {
       display: flex;
+      flex-wrap: wrap;
       justify-content: center;
       gap: 30px;
-      margin-bottom: 20px;
+      margin-bottom: 40px;
     }
+    
     .data-item {
-      padding: 20px;
-      background: rgb(196, 187, 230);
-      border-radius: 10px;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-      width: 300px;
+      padding: 25px;
+      background: var(--card-background);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      width: 260px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
+    
+    .data-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+    }
+    
     .data-item h2 {
-      font-size: 20px;
-      margin-bottom: 10px;
+      font-size: 18px;
+      margin-bottom: 15px;
+      color: var(--text-secondary);
+      font-weight: 600;
     }
+    
     .data-item p {
-      font-size: 24px;
-      font-weight: bold;
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 15px;
+      color: var(--primary-color);
     }
+    
     .data-bar {
       width: 100%;
-      height: 30px;
-      background-color: #e0e0e0;
-      border-radius: 15px;
-      margin-top: 10px;
+      height: 12px;
+      background-color: #f0f0f0;
+      border-radius: 6px;
+      margin-top: 15px;
       position: relative;
+      overflow: hidden;
     }
+    
     .data-level {
       height: 100%;
       width: 0%;
-      background-color: #3498db;
-      border-radius: 15px;
-      transition: width 0.5s ease;
+      background-color: var(--primary-color);
+      border-radius: 6px;
+      transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
     }
+    
     .button-container {
-      margin-top: 20px;
+      margin-top: 30px;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
     }
+    
     .button {
-      padding: 10px 20px; 
-      margin: 10px; 
+      padding: 12px 28px; 
       cursor: pointer; 
-      font-size: 16px; 
-      background-color: #3498db;
+      font-size: 16px;
+      font-weight: 600; 
+      background-color: var(--primary-color);
       color: white;
       border: none;
-      border-radius: 5px;
-      transition: background-color 0.3s;
+      border-radius: 8px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 6px rgba(67, 97, 238, 0.3);
     }
+    
     .button:hover {
-      background-color: #2980b9;
+      background-color: var(--secondary-color);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(67, 97, 238, 0.4);
     }
+    
+    .button:active {
+      transform: translateY(1px);
+    }
+    
     .loading {
       font-size: 18px;
-      color: #7f8c8d;
+      color: var(--text-secondary);
+      animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+    
+    @media (max-width: 768px) {
+      .data-container {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .data-item {
+        width: 100%;
+        max-width: 320px;
+      }
     }
   </style>
 </head>
 <body>
-  <h1>ESP32 Web Server</h1>
-  <div class="data-container"> 
-    
-    <div class="data-item">
-      <h2>Temperature</h2>
-      <p id="temperature" class="loading">Loading...</p>
-      <div class="data-bar">
-        <div id="temperature-bar" class="data-level"></div>
+  <div class="container">
+    <h1>ESP32 Smart Monitoring</h1>
+    <div class="data-container"> 
+      
+      <div class="data-item">
+        <h2>Temperature</h2>
+        <p id="temperature" class="loading">Loading...</p>
+        <div class="data-bar">
+          <div id="temperature-bar" class="data-level"></div>
+        </div>
+      </div>
+
+      <div class="data-item">
+        <h2>Humidity</h2>
+        <p id="humidity" class="loading">Loading...</p>
+        <div class="data-bar">
+          <div id="humidity-bar" class="data-level"></div>
+        </div>
+      </div>
+
+      <div class="data-item">
+        <h2>Light Intensity</h2>
+        <p id="light" class="loading">Loading...</p>
+        <div class="data-bar">
+          <div id="light-bar" class="data-level"></div>
+        </div>
+      </div>
+
+      <div class="data-item">
+        <h2>Soil Moisture</h2>
+        <p id="soil-moisture" class="loading">Loading...</p>
+        <div class="data-bar">
+          <div id="soil-moisture-bar" class="data-level"></div>
+        </div>
       </div>
     </div>
 
-    <div class="data-item">
-      <h2>Humidity</h2>
-      <p id="humidity" class="loading">Loading...</p>
-      <div class="data-bar">
-        <div id="humidity-bar" class="data-level"></div>
-      </div>
+    <div class="button-container">
+      <button class="button" onclick="toggleLED('on')">Turn LED On</button>
+      <button class="button" onclick="toggleLED('off')">Turn LED Off</button>
     </div>
-
-    <div class="data-item">
-      <h2>Light Intensity</h2>
-      <p id="light" class="loading">Loading...</p>
-      <div class="data-bar">
-        <div id="light-bar" class="data-level"></div>
-      </div>
-    </div>
-
-    <div class="data-item">
-      <h2>Soil Moisture</h2>
-      <p id="soil-moisture" class="loading">Loading...</p>
-      <div class="data-bar">
-        <div id="soil-moisture-bar" class="data-level"></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="button-container">
-    <button class="button" onclick="toggleLED('on')">Turn LED On</button>
-    <button class="button" onclick="toggleLED('off')">Turn LED Off</button>
   </div>
 
   <script>
@@ -160,14 +257,14 @@
       const barElement = document.getElementById(barId);
       barElement.style.width = percentage + '%';
       if (barId === 'temperature-bar') {
-    if (value < 27) {
-      barElement.style.backgroundColor = 'lightblue';
-    } else if (value >= 27 && value <= 28) {
-      barElement.style.backgroundColor = 'lightgreen';
-    } else {
-      barElement.style.backgroundColor = 'lightsalmon';
-    }
-  }
+        if (value < 27) {
+          barElement.style.backgroundColor = '#3498db'; // cool blue
+        } else if (value >= 27 && value <= 28) {
+          barElement.style.backgroundColor = '#2ecc71'; // green
+        } else {
+          barElement.style.backgroundColor = '#e74c3c'; // warm red
+        }
+      }
     }
   
 

@@ -7,6 +7,8 @@
 #include <SPIFFS.h>
 #include <ESPAsyncWebServer.h>
 #include <PubSubClient.h>
+#include <HTTPClient.h>
+
 
 //#define WLAN_SSID "RD-SEAI_2.4G" //uncomment to run ohstem and adafruit
 #define WLAN_SSID "ESP32" //uncomment to run webserver
@@ -54,7 +56,7 @@ void TaskBlink(void *pvParameters);
 void TaskTemperatureHumidity(void *pvParameters);
 void TaskSoilMoistureAndRelay(void *pvParameters);
 void TaskLightAndLED(void *pvParameters);
-
+void sendImage( String imgPath);
 // Define your components here
 Adafruit_NeoPixel pixels3(4, D5, NEO_GRB + NEO_KHZ800);
 DHT20 dht20;
@@ -145,11 +147,58 @@ void setup() {
       Serial.println("SPIFFS Mount Failed");
       //return;
   }
+#include <SPIFFS.h>
+#include <WiFi.h>
+#include <ESPAsyncWebServer.h>
 
-  // Serve the HTML file
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+AsyncWebServer server(80);
+
+// Global login flag
+bool login = false;
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin("YOUR_SSID", "YOUR_PASSWORD");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("WiFi connected");
+
+  if (!SPIFFS.begin(true)) {
+    Serial.println("Failed to mount SPIFFS");
+    return;
+  }
+
+  // Route: Root `/`
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    if (!login) {
+          request->send(SPIFFS, "/login.html", "text/html");
+    } else {
       request->send(SPIFFS, "/web.html", "text/html");
+    }
   });
+
+  // Route: Handle login POST
+  server.on("/login", HTTP_POST, [](AsyncWebServerRequest *request) {
+    String username, password;
+
+    if (request->hasParam("username", true) && request->hasParam("password", true)) {
+      username = request->getParam("username", true)->value();
+      password = request->getParam("password", true)->value();
+
+      if (username == "admin1" && password == "tung") {
+        login = true;
+        request->redirect("/");
+      } else {
+        request->send(200, "text/plain", "Invalid credentials");
+      }
+    } else {
+      request->send(400, "text/plain", "Missing login info");
+    }
+  });
+
+
   // Endpoint to fetch temperature
   server.on("/temperature", HTTP_GET, [](AsyncWebServerRequest *request){
     float temperature = dht20.getTemperature();
@@ -306,11 +355,10 @@ void TaskLightAndLED(void *pvParameters) {
   }
 }
 
-#include <HTTPClient.h>
 
-void sendImageRequest( String img) {
 
-  File imageFile = SPIFFS.open(img, "r");
+void sendImage(String imgPath) {
+  File imageFile = SPIFFS.open(imgPath, "r");
   if (!imageFile || imageFile.isDirectory()) {
     Serial.println("Failed to open image file");
     return;
@@ -319,56 +367,24 @@ void sendImageRequest( String img) {
   WiFiClient wifiClient;
   HTTPClient http;
 
-  http.begin(wifiClient, "http://127.0.0.1:8000/process");
-  String boundary = "----ESP32Boundary";
+  http.begin(wifiClient, "http://127.0.0.1:8000/process");  // Replace with your server URL
+  http.addHeader("Content-Type", "image/png");  // Change to image/jpeg if needed
 
-  http.addHeader("Content-Type", "multipart/form-data; boundary=" + boundary);
+  int httpResponseCode = http.sendRequest("POST", &imageFile, imageFile.size());
+  imageFile.close();  // Close before deleting
 
-  String bodyStart = "--" + boundary + "\r\n";
-  bodyStart += "Content-Disposition: form-data; name=\"mail\"\r\n\r\n";
-  bodyStart += "mailto:24006836@student.westernsydney.edu.vn\r\n";
+  if (httpResponseCode > 0) {
+    Serial.printf("HTTP %d\nResponse: %s\n", httpResponseCode, http.getString().c_str());
 
-  bodyStart += "--" + boundary + "\r\n";
-  bodyStart += "Content-Disposition: form-data; name=\"course\"\r\n\r\n";
-  bodyStart += "https://lms.westernsydney.edu.vn/activities/courses/business-academic-skills-t225wsb-5_1548\r\n";
-
-  bodyStart += "--" + boundary + "\r\n";
-  bodyStart += "Content-Disposition: form-data; name=\"file\"; filename=\"image.jpg\"\r\n";
-  bodyStart += "Content-Type: image/jpeg\r\n\r\n";
-
-  String bodyEnd = "\r\n--" + boundary + "--\r\n";
-
-  int totalLen = bodyStart.length() + imageFile.size() + bodyEnd.length();
-  http.setTimeout(20000);
-
-  int httpCode = http.sendRequest("POST", &wifiClient, totalLen,
-    [&](WiFiClient *client) {
-      client->print(bodyStart);
-
-      uint8_t buf[512];
-      while (imageFile.available()) {
-        size_t len = imageFile.read(buf, sizeof(buf));
-        client->write(buf, len);
-      }
-
-      client->print(bodyEnd);
+    // ✅ Delete only if the request was successful
+    if (SPIFFS.remove(imgPath)) {
+      Serial.println("Image deleted from SPIFFS.");
+    } else {
+      Serial.println("Failed to delete image.");
     }
-  );
 
-  imageFile.close();  // ✅ Close the file before removing it
-
-  // ✅ Delete the image after sending
-  if (SPIFFS.remove(img)) {
-    Serial.println("Image deleted from SPIFFS.");
   } else {
-    Serial.println("Failed to delete image.");
-  }
-
-  if (httpCode > 0) {
-    String response = http.getString();
-    Serial.printf("HTTP %d\nResponse: %s\n", httpCode, response.c_str());
-  } else {
-    Serial.printf("HTTP request failed: %s\n", http.errorToString(httpCode).c_str());
+    Serial.printf("HTTP request failed: %s\n", http.errorToString(httpResponseCode).c_str());
   }
 
   http.end();

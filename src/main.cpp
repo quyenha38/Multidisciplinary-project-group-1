@@ -357,7 +357,7 @@ void TaskLightAndLED(void *pvParameters) {
 
 
 
-void sendImage(String imgPath) {
+void sendImage(String imgPath ) {
   File imageFile = SPIFFS.open(imgPath, "r");
   if (!imageFile || imageFile.isDirectory()) {
     Serial.println("Failed to open image file");

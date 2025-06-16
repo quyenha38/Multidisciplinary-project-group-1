@@ -5,7 +5,9 @@ from tensorflow.keras.preprocessing import image
 from tensorflow.keras.applications.mobilenet import preprocess_input
 from PIL import Image
 import io
-
+from flask_cors import CORS
+import csv
+import pandas as pd
 # Configuration
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 IMG_SIZE = (224, 224)
@@ -28,7 +30,7 @@ model = tf.keras.models.load_model('my_saved_model.keras')
 
 # Create Flask app
 app = Flask(__name__)
-
+CORS(app)
 # Utility: Check allowed file extensions
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -43,8 +45,27 @@ def predict_image(file_stream):
     preds = model.predict(x)
     pred_index = tf.argmax(preds[0]).numpy()
     return class_names[pred_index]
+CSV_FILE = 'thingsboard.csv'
 
-# API endpoint
+@app.route('/log')
+def log():
+    try:
+        df = pd.read_csv('thingsboard.csv', sep=';')
+        df.rename(columns={
+            'Timestamp': 'timestamp',
+            'Humidity': 'humid',
+            'Temperature': 'temp'
+        }, inplace=True)
+        df = df.dropna(axis='index', how='all')
+        data = df[['timestamp', 'humid', 'temp']].to_dict(orient='records')
+        print(data)
+        return jsonify(data)  # <-- THIS must be used!
+    except Exception as e:
+        print("[ERROR] Failed to process log:", e)
+        return jsonify({'error': str(e)}), 500
+
+    
+
 @app.route('/predict', methods=['POST'])
 def predict():
     if 'file' not in request.files:

@@ -216,8 +216,65 @@
       <button class="button" onclick="toggleLED('off')">Turn LED Off</button>
     </div>
   </div>
+  <div class="button-container">
+  <button class="button" onclick="fetchLogs()">Show Logs</button>
+</div>
+
+<div id="log-section" style="margin-top: 40px;">
+  <h2 style="margin-bottom: 20px;">Log History</h2>
+  <table id="log-table" style="width: 100%; border-collapse: collapse;">
+    <thead>
+      <tr style="background-color: var(--primary-color); color: white;">
+        <th style="padding: 10px;">Timestamp</th>
+        <th style="padding: 10px;">Humidity</th>
+        <th style="padding: 10px;">Temperature</th>
+      </tr>
+    </thead>
+    <tbody id="log-body">
+      <!-- Log rows will be inserted here -->
+    </tbody>
+  </table>
+</div>
 
   <script>
+ function fetchLogs() {
+  fetch("http://127.0.0.1:5000/log")
+    .then(res => {
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+      return res.json();
+    })
+    .then(data => {
+      console.log("Fetched log data:", data);
+
+      const tbody = document.getElementById("log-body");
+      tbody.innerHTML = "";
+
+      // Assuming data is an array of log objects
+      data.forEach(log => {
+        const row = document.createElement("tr");
+
+        // Create cells for timestamp, temperature, and humidity
+        const timestampCell = document.createElement("td");
+        timestampCell.textContent = log.timestamp;
+        row.appendChild(timestampCell);
+
+        const tempCell = document.createElement("td");
+        tempCell.textContent = log.temp.toFixed(2); // Round to 2 decimal places
+        row.appendChild(tempCell);
+
+        const humidCell = document.createElement("td");
+        humidCell.textContent = log.humid.toFixed(2); // Round to 2 decimal places
+        row.appendChild(humidCell);
+
+        tbody.appendChild(row);
+      });
+    })
+    .catch(error => {
+      console.error("Error fetching logs:", error);
+      const tbody = document.getElementById("log-body");
+      tbody.innerHTML = `<tr><td colspan="3">Error loading logs: ${error.message}</td></tr>`;
+    });
+}
     // Fetch data from the ESP32 server every 2 seconds
     setInterval(() => {
       fetch('/temperature')

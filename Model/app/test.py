@@ -4,7 +4,7 @@ import requests
 url = 'http://127.0.0.1:5000/predict'
 
 # Path to a sample test image
-image_path = './Original Dataset/Anthracnose/Anthracnose00001.jpg'
+image_path = 'test.png'
 
 # Send POST request with image
 with open(image_path, 'rb') as img_file:

@@ -152,7 +152,37 @@ void setup() {
 #include <ESPAsyncWebServer.h>
 
 AsyncWebServer server(80);
+String generateStaticHTML() {
+  File csvFile = SPIFFS.open("/data/log.csv", "r");
+  if (!csvFile) {
+    Serial.println("Failed to open log.csv");
+    return "<!DOCTYPE html><html><body><h2>Error: CSV file not found</h2></body></html>";
+  }
 
+  String html = "<!DOCTYPE html><html><head><title>Sensor Data</title>";
+  html += "<style>table{border-collapse:collapse;width:100%;font-family:Arial,sans-serif;}";
+  html += "th,td{border:1px solid #ddd;padding:8px;text-align:left;}";
+  html += "th{background-color:#f2f2f2;}tr:nth-child(even){background-color:#f9f9f9;}</style>";
+  html += "</head><body><h2>Sensor Data Log</h2><table>";
+  html += "<tr><th>Timestamp</th><th>Temperature</th><th>Humidity</th><th>Soil Moisture</th><th>Light</th></tr>";
+
+  while (csvFile.available()) {
+    String line = csvFile.readStringUntil('\n');
+    html += "<tr>";
+    int start = 0;
+    for (int col = 0; col < 5; col++) {
+      int end = line.indexOf(',', start);
+      if (end == -1 && col < 4) end = line.length();
+      html += "<td>" + (end == -1 ? line.substring(start) : line.substring(start, end)) + "</td>";
+      start = end + 1;
+    }
+    html += "</tr>";
+  }
+
+  csvFile.close();
+  html += "</table></body></html>";
+  return html;
+}
 // Global login flag
 bool login = false;
 
@@ -198,6 +228,10 @@ void setup() {
     }
   });
 
+    server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request){
+    String html = generateStaticHTML();
+    request->send(200, "text/html", html);
+  });
 
   // Endpoint to fetch temperature
   server.on("/temperature", HTTP_GET, [](AsyncWebServerRequest *request){

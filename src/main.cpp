@@ -8,7 +8,7 @@
 #include <ESPAsyncWebServer.h>
 #include <PubSubClient.h>
 #include <HTTPClient.h>
-
+#include <WiFiAP.h> 
 
 //#define WLAN_SSID "RD-SEAI_2.4G" //uncomment to run ohstem and adafruit
 #define WLAN_SSID "ESP32" //uncomment to run webserver
@@ -105,16 +105,22 @@ void MQTT_connect() {
 }
 
 void setup() {
+  Serial.begin(115200);
+  Serial.println("Hello from setup");
   pinMode(LIGHT_PIN, OUTPUT);
-  digitalWrite(LIGHT_PIN, LOW);
-  Serial.begin(115200); 
-  Wire.begin(GPIO_NUM_11, GPIO_NUM_12);
+  Wire.begin(1, 2);
+  Serial.println("Wire initialized");
   dht20.begin();
+  Serial.println("DHT20 initialized");
   lcd.begin();
+  Serial.println("LCD initialized");
   pixels3.begin();
+  Serial.println("Pixels initialized");
   ledcSetup(0, 5000, 8); 
   ledcAttachPin(GPIO_NUM_48, 0);
+  Serial.println("LEDC initialized");
   WiFi.softAP(WLAN_SSID); //uncomment to run webserver
+  Serial.println("WiFi AP started");
 //pio run -t uploadfs to flash  data to esp32
 
 
@@ -136,102 +142,33 @@ void setup() {
   onoffbutton.setCallback(onoffcallback);
   //mqtt.subscribe(&slider);
   mqtt.subscribe(&onoffbutton);
+  Serial.println("MQTT subscribed");
 
   xTaskCreate(TaskBlink, "Task Blink", 2048, NULL, 2, NULL);
   xTaskCreate(TaskTemperatureHumidity, "Task Temperature", 2048, NULL, 2, NULL);
   xTaskCreate(TaskSoilMoistureAndRelay, "Task Soil Relay", 2048, NULL, 2, NULL);
   xTaskCreate(TaskLightAndLED, "Task Light LED", 2048, NULL, 2, NULL);
+  Serial.println("Tasks created");
 
   // Initialize SPIFFS
   if (!SPIFFS.begin(true)) {
       Serial.println("SPIFFS Mount Failed");
       //return;
   }
-#include <SPIFFS.h>
-#include <WiFi.h>
-#include <ESPAsyncWebServer.h>
+  Serial.println("SPIFFS initialized");
 
-AsyncWebServer server(80);
-String generateStaticHTML() {
-  File csvFile = SPIFFS.open("/data/log.csv", "r");
-  if (!csvFile) {
-    Serial.println("Failed to open log.csv");
-    return "<!DOCTYPE html><html><body><h2>Error: CSV file not found</h2></body></html>";
-  }
 
-  String html = "<!DOCTYPE html><html><head><title>Sensor Data</title>";
-  html += "<style>table{border-collapse:collapse;width:100%;font-family:Arial,sans-serif;}";
-  html += "th,td{border:1px solid #ddd;padding:8px;text-align:left;}";
-  html += "th{background-color:#f2f2f2;}tr:nth-child(even){background-color:#f9f9f9;}</style>";
-  html += "</head><body><h2>Sensor Data Log</h2><table>";
-  html += "<tr><th>Timestamp</th><th>Temperature</th><th>Humidity</th><th>Soil Moisture</th><th>Light</th></tr>";
 
-  while (csvFile.available()) {
-    String line = csvFile.readStringUntil('\n');
-    html += "<tr>";
-    int start = 0;
-    for (int col = 0; col < 5; col++) {
-      int end = line.indexOf(',', start);
-      if (end == -1 && col < 4) end = line.length();
-      html += "<td>" + (end == -1 ? line.substring(start) : line.substring(start, end)) + "</td>";
-      start = end + 1;
-    }
-    html += "</tr>";
-  }
-
-  csvFile.close();
-  html += "</table></body></html>";
-  return html;
-}
-// Global login flag
-bool login = false;
-
-void setup() {
-  Serial.begin(115200);
-  WiFi.begin("YOUR_SSID", "YOUR_PASSWORD");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("WiFi connected");
-
-  if (!SPIFFS.begin(true)) {
-    Serial.println("Failed to mount SPIFFS");
-    return;
-  }
 
   // Route: Root `/`
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (!login) {
-          request->send(SPIFFS, "/login.html", "text/html");
-    } else {
+    
       request->send(SPIFFS, "/web.html", "text/html");
-    }
   });
 
   // Route: Handle login POST
-  server.on("/login", HTTP_POST, [](AsyncWebServerRequest *request) {
-    String username, password;
+  
 
-    if (request->hasParam("username", true) && request->hasParam("password", true)) {
-      username = request->getParam("username", true)->value();
-      password = request->getParam("password", true)->value();
-
-      if (username == "admin1" && password == "tung") {
-        login = true;
-        request->redirect("/");
-      } else {
-        request->send(200, "text/plain", "Invalid credentials");
-      }
-    } else {
-      request->send(400, "text/plain", "Missing login info");
-    }
-  });
-
-    server.on("/log", HTTP_GET, [](AsyncWebServerRequest *request){
-    String html = generateStaticHTML();
-    request->send(200, "text/html", html);
-  });
 
   // Endpoint to fetch temperature
   server.on("/temperature", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -272,15 +209,17 @@ server.on("/led/off", HTTP_GET, [](AsyncWebServerRequest *request){
 
   // Start the server
   server.begin();
+  Serial.println("Server started");
 
   Serial.printf("Basic Multi-Threading Arduino Example\n");
 }
 
+
 int pubCount = 0;
 void loop() {
-  MQTT_connect();
-  mqtt.processPackets(10000);
-  if(! mqtt.ping()) mqtt.disconnect();
+  // MQTT_connect();
+  // mqtt.processPackets(10000);
+  // if(! mqtt.ping()) mqtt.disconnect();
 }
 
 // Task Definitions
